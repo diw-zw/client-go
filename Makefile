@@ -1,9 +1,7 @@
 GO ?= go
 PYTHON ?= python3
 RBG_SOURCE ?= ../rbg
-RBG_API_SOURCE ?= ../rbg-api
-REF ?= v0.8.0
-API_VERSION ?= $(REF)
+VERSION ?= v0.8.0
 
 .PHONY: help
 help: ## Display this help.
@@ -13,9 +11,7 @@ help: ## Display this help.
 sync: ## Sync generated client-go from RBG.
 	$(PYTHON) script/sync_from_rbg.py \
 		--source "$(RBG_SOURCE)" \
-		--ref "$(REF)" \
-		--api-version "$(API_VERSION)" \
-		--api-source "$(RBG_API_SOURCE)"
+		--ref "$(VERSION)"
 
 .PHONY: fmt
 fmt: ## Format generated Go files.
@@ -23,16 +19,16 @@ fmt: ## Format generated Go files.
 
 .PHONY: tidy
 tidy: ## Run go mod tidy.
-	KEEP_GO_MOD=1 script/with_api_replace.sh "$(RBG_API_SOURCE)" -- $(GO) mod tidy
+	$(GO) mod tidy
 
 .PHONY: build
 build: ## Compile all packages.
-	script/with_api_replace.sh "$(RBG_API_SOURCE)" -- $(GO) build ./...
+	$(GO) build ./...
 
 .PHONY: test
 test: ## Run unit tests.
-	script/with_api_replace.sh "$(RBG_API_SOURCE)" -- $(GO) test ./... -count=1
+	$(GO) test ./... -count=1
 
 .PHONY: vet
 vet: ## Run go vet.
-	script/with_api_replace.sh "$(RBG_API_SOURCE)" -- $(GO) vet ./...
+	$(GO) vet ./...

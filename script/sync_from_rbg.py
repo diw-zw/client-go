@@ -11,14 +11,12 @@ Example:
     python3 script/sync_from_rbg.py \
         --source ../rbg \
         --ref v0.8.0 \
-        --api-version v0.8.0 \
-        --api-source ../rbg-api
+        --go go
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import shutil
 import subprocess
@@ -251,24 +249,15 @@ def update_go_mod(root: Path, source: Path, ref: str, api_version: str, go_comma
     run_go(go_command, root, ["mod", "edit", f"-go={go_match.group(1)}"])
     for requirement in requirements:
         run_go(go_command, root, ["mod", "edit", f"-require={requirement}"])
-
-
-def add_api_replace(root: Path, api_source: Path, go_command: str) -> None:
-    if not (api_source / "go.mod").is_file():
-        raise SyncError(f"rbg-api source is not a Go module: {api_source}")
-    result = run_go(go_command, root, ["mod", "edit", "-json"])
-    module = json.loads(result.stdout)
-    if any(
-        replacement.get("Old", {}).get("Path") == API_MODULE
-        for replacement in module.get("Replace", [])
-    ):
-        raise SyncError(f"go.mod already replaces {API_MODULE}")
-    resolved = api_source.expanduser().resolve()
-    run_go(go_command, root, ["mod", "edit", f"-replace={API_MODULE}={resolved}"])
-
-
-def drop_api_replace(root: Path, go_command: str) -> None:
-    run_go(go_command, root, ["mod", "edit", f"-dropreplace={API_MODULE}"])
+    run_go(
+        go_command,
+        root,
+        [
+            "mod",
+            "edit",
+            f"-replace={API_MODULE}=github.com/sgl-project/rbg-api@{api_version}",
+        ],
+    )
 
 
 def update_readme_version(root: Path, version: str, api_versions: set[str]) -> None:
@@ -292,15 +281,12 @@ def update_readme_version(root: Path, version: str, api_versions: set[str]) -> N
         readme.write_text(updated, encoding="utf-8")
 
 
-def resolve_api_version(ref: str, requested: str | None) -> str:
-    if requested:
-        if not VERSION_PATTERN.fullmatch(requested):
-            raise SyncError(f"invalid API version: {requested}")
-        return requested
+def resolve_release_version(ref: str) -> str:
     if VERSION_PATTERN.fullmatch(ref):
         return ref
     raise SyncError(
-        "--api-version is required when --ref is a branch or commit SHA"
+        "--ref must be a semantic version tag because rbg, rbg-api, and "
+        "client-go are released in lockstep"
     )
 
 
@@ -313,28 +299,16 @@ def parse_args() -> argparse.Namespace:
         default=default_source,
         help=f"path to the rbg repository (default: {default_source})",
     )
-    parser.add_argument("--ref", required=True, help="rbg Git tag, branch, or commit")
     parser.add_argument(
-        "--api-version",
-        help="rbg-api release version; defaults to a semantic --ref tag",
-    )
-    parser.add_argument(
-        "--version",
-        help="client-go release version used in README compatibility tables",
+        "--ref",
+        required=True,
+        help="rbg semantic version tag, also used for rbg-api and client-go",
     )
     parser.add_argument(
         "--destination",
         type=Path,
         default=Path.cwd(),
         help="client-go repository root (default: current directory)",
-    )
-    parser.add_argument(
-        "--api-source",
-        type=Path,
-        help=(
-            "optional local rbg-api checkout; used as a temporary replace "
-            "while running go mod tidy"
-        ),
     )
     parser.add_argument("--go", default="go", help="Go executable (default: go)")
     parser.add_argument(
@@ -349,8 +323,8 @@ def main() -> int:
     args = parse_args()
     source = args.source.expanduser().resolve()
     root = args.destination.expanduser().resolve()
-    api_version = resolve_api_version(args.ref, args.api_version)
-    version = args.version or api_version
+    version = resolve_release_version(args.ref)
+    api_version = version
 
     ensure_repository(source, args.ref)
     ensure_destination(root)
@@ -368,15 +342,7 @@ def main() -> int:
 
     if not args.skip_go_mod:
         update_go_mod(root, source, args.ref, api_version, args.go)
-        if args.api_source:
-            api_source = args.api_source.expanduser().resolve()
-            add_api_replace(root, api_source, args.go)
-            try:
-                run_go(args.go, root, ["mod", "tidy"])
-            finally:
-                drop_api_replace(root, args.go)
-        else:
-            run_go(args.go, root, ["mod", "tidy"])
+        run_go(args.go, root, ["mod", "tidy"])
 
     update_readme_version(root, version, api_versions)
     print(

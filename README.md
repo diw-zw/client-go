@@ -85,11 +85,12 @@ rbg, err = client.WorkloadsV1alpha2().
 Generated code is synchronized from the rbg repository:
 
 ```bash
-make sync REF=v0.8.0 API_VERSION=v0.8.0
+make sync VERSION=v0.8.0
 ```
 
-The command requires a local `../rbg` checkout and, by default, a local
-`../rbg-api` checkout. See `script/README.md` for direct script usage.
+The command requires a local `../rbg` checkout. It automatically updates
+`go.mod` to use the matching published `rbg-api` version. See
+`script/README.md` for direct script usage.
 
 ## Verification
 
@@ -98,8 +99,7 @@ make test
 make vet
 ```
 
-These targets temporarily point `sigs.k8s.io/rbgs/api` at the local
-`../rbg-api` checkout while running the command, then restore `go.mod`.
+These targets use the `replace` directive maintained by the sync script.
 
 ## Release compatibility
 

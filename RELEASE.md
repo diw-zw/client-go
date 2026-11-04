@@ -7,7 +7,7 @@ versions.
 2. Sync the generated client:
 
    ```bash
-   make sync REF=$VERSION API_VERSION=$VERSION
+   make sync VERSION=$VERSION
    ```
 
 3. Run `make build`, `make test`, and `make vet`.
