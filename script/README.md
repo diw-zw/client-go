@@ -19,7 +19,7 @@ From the repository root:
 ```bash
 export VERSION=v0.8.0
 export RBG_SOURCE=../rbg
-git switch "release/$VERSION"
+git switch -c "release/$VERSION"
 
 python3 script/sync_from_rbg.py \
   --source "$RBG_SOURCE" \
@@ -67,3 +67,24 @@ git status --short
 Inspect the diff before committing. The four generated directories should
 contain only files copied from rbg; API types, controllers, webhooks, and
 validation logic should not appear in this repository.
+
+## Commit and push the sync result
+
+After the diff and test results look correct, commit the generated code and
+the sync metadata:
+
+```bash
+git add \
+  README.md \
+  go.mod \
+  go.sum \
+  applyconfiguration \
+  clientset \
+  informers \
+  listers \
+  script
+
+git commit -m "feat(client-go): sync from rbg $VERSION"
+
+git push -u origin "release/$VERSION"
+```
