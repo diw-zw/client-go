@@ -32,9 +32,9 @@ must add a temporary `replace` directive pointing at the actual Git repository.
 
 ## Installation
 
-**Important:** The RBG API module path (`sigs.k8s.io/rbgs/api`) does not match
-its repository host (`github.com/sgl-project/rbg-api`). Direct `go get
-sigs.k8s.io/rbgs/api` will fail.
+**Important:** Both module paths (`sigs.k8s.io/rbgs/api` and
+`sigs.k8s.io/rbgs/client-go`) do not match their repository hosts. Direct
+`go get` calls will fail without the `replace` directives shown below.
 
 The generated clients in this repository require `k8s.io/client-go` v0.34.2
 or newer. Older versions do not provide the `gentype` helper used by the
@@ -48,7 +48,10 @@ require (
     sigs.k8s.io/rbgs/client-go v0.8.0
 )
 
-replace sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.8.0
+replace (
+    sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.8.0
+    sigs.k8s.io/rbgs/client-go => github.com/sgl-project/rbg-client-go v0.8.0
+)
 ```
 
 Then run:
@@ -57,9 +60,8 @@ Then run:
 go mod tidy
 ```
 
-If `sigs.k8s.io/rbgs/client-go` is also not reachable through a vanity
-endpoint, add a second `replace` directive for this repository's published Git
-location.
+Once `v0.8.0` is tagged in the client-go repository, both modules can be
+resolved through the `replace` directives above.
 
 ## Example
 
@@ -83,6 +85,13 @@ rbg, err = client.WorkloadsV1alpha2().
 ## Sync from rbg
 
 Generated code is synchronized from the rbg repository:
+
+```bash
+make sync
+```
+
+On a `release/<version>` branch, the version is inferred from the branch name.
+On any other branch, pass `VERSION` explicitly:
 
 ```bash
 make sync VERSION=v0.8.0

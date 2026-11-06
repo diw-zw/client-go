@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 bin/
+__pycache__/
 coverage.out
 go.work
 go.work.sum

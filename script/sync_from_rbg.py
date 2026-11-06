@@ -10,7 +10,6 @@ Example:
 
     python3 script/sync_from_rbg.py \
         --source ../rbg \
-        --ref v0.8.0 \
         --go go
 """
 
@@ -29,6 +28,8 @@ CLIENT_SOURCE = "client-go"
 API_SOURCE = "api/workloads"
 MODULE_PATH = "sigs.k8s.io/rbgs/client-go"
 API_MODULE = "sigs.k8s.io/rbgs/api"
+API_REPOSITORY = "https://github.com/sgl-project/rbg-api"
+RELEASE_BRANCH_PREFIX = "release/"
 
 GENERATED_DIRECTORIES = (
     "applyconfiguration",
@@ -44,8 +45,8 @@ SOURCE_DIRECT_DEPENDENCIES = (
 )
 
 VERSION_PATTERN = re.compile(
-    r"^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?"
-    r"(?:\+[0-9A-Za-z.-]+)?$"
+    r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-(?:alpha|beta|rc)\.(0|[1-9][0-9]*))?$"
 )
 GO_DIRECTIVE_PATTERN = re.compile(
     r"^go\s+([0-9]+(?:\.[0-9]+)+)\s*$", re.MULTILINE
@@ -79,12 +80,69 @@ def run_go(
     return result
 
 
-def ensure_repository(source: Path, ref: str) -> None:
+def resolve_rbg_tag(source: Path, version: str) -> str:
     if not source.is_dir():
         raise SyncError(f"rbg source does not exist: {source}")
     if not (source / ".git").exists():
         raise SyncError(f"rbg source is not a Git repository: {source}")
-    run_git(source, ["rev-parse", "--verify", f"{ref}^{{commit}}"])
+    result = run_git(
+        source,
+        ["rev-parse", "--verify", f"refs/tags/{version}^{{commit}}"],
+    )
+    return result.stdout.decode("utf-8").strip()
+
+
+def ensure_rbg_api_tag(version: str) -> None:
+    result = subprocess.run(
+        [
+            "git",
+            "ls-remote",
+            "--exit-code",
+            "--tags",
+            API_REPOSITORY,
+            f"refs/tags/{version}",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        raise SyncError(f"rbg-api tag does not exist: {version}")
+
+
+def current_branch(root: Path) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def resolve_release_version(root: Path, requested: str | None) -> str:
+    branch = current_branch(root)
+    from_branch = (
+        branch[len(RELEASE_BRANCH_PREFIX):]
+        if branch and branch.startswith(RELEASE_BRANCH_PREFIX)
+        else None
+    )
+    if requested and from_branch and requested != from_branch:
+        raise SyncError(
+            f"--ref {requested} does not match branch {branch}"
+        )
+    version = requested or from_branch
+    if not version:
+        raise SyncError(
+            "--ref is required unless HEAD is on a release/<version> branch"
+        )
+    if not VERSION_PATTERN.fullmatch(version):
+        raise SyncError(
+            f"invalid version {version!r}: expected vX.Y.Z or "
+            "vX.Y.Z-(alpha|beta|rc).N"
+        )
+    return version
 
 
 def ensure_destination(root: Path) -> None:
@@ -94,8 +152,11 @@ def ensure_destination(root: Path) -> None:
         raise SyncError(f"destination is not a Go module: {root}")
 
 
-def source_paths(source: Path, ref: str, path: str) -> list[str]:
-    result = run_git(source, ["ls-tree", "-r", "--name-only", ref, "--", path])
+def source_paths(source: Path, commit: str, path: str) -> list[str]:
+    result = run_git(
+        source,
+        ["ls-tree", "-r", "--name-only", commit, "--", path],
+    )
     paths = result.stdout.decode("utf-8").splitlines()
     return [item for item in paths if item and not item.endswith("/")]
 
@@ -124,7 +185,7 @@ def destination_path(root: Path, source_path: str) -> Path:
 
 def copy_generated_client(
     source: Path,
-    ref: str,
+    commit: str,
     root: Path,
     files: list[str],
 ) -> int:
@@ -138,7 +199,7 @@ def copy_generated_client(
         if not source_path.startswith(CLIENT_SOURCE + "/"):
             raise SyncError(f"unexpected client-go source path: {source_path}")
 
-        blob = run_git(source, ["show", f"{ref}:{source_path}"]).stdout
+        blob = run_git(source, ["show", f"{commit}:{source_path}"]).stdout
         target = destination_path(root, source_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(blob)
@@ -176,10 +237,14 @@ def versions_from_paths(paths: list[str], prefix: str) -> set[str]:
     return versions
 
 
-def validate_api_coverage(source: Path, ref: str, client_files: list[str]) -> set[str]:
-    api_files = source_paths(source, ref, API_SOURCE)
+def validate_api_coverage(
+    source: Path,
+    commit: str,
+    client_files: list[str],
+) -> set[str]:
+    api_files = source_paths(source, commit, API_SOURCE)
     if not api_files:
-        raise SyncError(f"no {API_SOURCE} files found in rbg {ref}")
+        raise SyncError(f"no {API_SOURCE} files found in rbg commit {commit}")
 
     api_versions = versions_from_paths(api_files, API_SOURCE)
     client_versions = versions_from_paths(client_files, CLIENT_SOURCE)
@@ -215,8 +280,8 @@ def validate_generated_imports(root: Path) -> None:
                 )
 
 
-def source_go_mod(source: Path, ref: str) -> str:
-    return run_git(source, ["show", f"{ref}:go.mod"]).stdout.decode("utf-8")
+def source_go_mod(source: Path, commit: str) -> str:
+    return run_git(source, ["show", f"{commit}:go.mod"]).stdout.decode("utf-8")
 
 
 def required_version(go_mod: str, module: str) -> str:
@@ -229,12 +294,18 @@ def required_version(go_mod: str, module: str) -> str:
     return match.group(1)
 
 
-def update_go_mod(root: Path, source: Path, ref: str, api_version: str, go_command: str) -> None:
+def update_go_mod(
+    root: Path,
+    source: Path,
+    commit: str,
+    api_version: str,
+    go_command: str,
+) -> None:
     go_mod = root / "go.mod"
     if not go_mod.is_file():
         go_mod.write_text(f"module {MODULE_PATH}\n\ngo 1.25.0\n", encoding="utf-8")
 
-    source_module = source_go_mod(source, ref)
+    source_module = source_go_mod(source, commit)
     go_match = GO_DIRECTIVE_PATTERN.search(source_module)
     if go_match is None:
         raise SyncError("could not parse the go directive from rbg go.mod")
@@ -281,15 +352,6 @@ def update_readme_version(root: Path, version: str, api_versions: set[str]) -> N
         readme.write_text(updated, encoding="utf-8")
 
 
-def resolve_release_version(ref: str) -> str:
-    if VERSION_PATTERN.fullmatch(ref):
-        return ref
-    raise SyncError(
-        "--ref must be a semantic version tag because rbg, rbg-api, and "
-        "client-go are released in lockstep"
-    )
-
-
 def parse_args() -> argparse.Namespace:
     default_source = Path(__file__).resolve().parents[2] / "rbg"
     parser = argparse.ArgumentParser(description=__doc__)
@@ -301,8 +363,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--ref",
-        required=True,
-        help="rbg semantic version tag, also used for rbg-api and client-go",
+        help=(
+            "rbg semantic version tag; defaults to the release/<version> "
+            "branch name"
+        ),
     )
     parser.add_argument(
         "--destination",
@@ -311,11 +375,6 @@ def parse_args() -> argparse.Namespace:
         help="client-go repository root (default: current directory)",
     )
     parser.add_argument("--go", default="go", help="Go executable (default: go)")
-    parser.add_argument(
-        "--skip-go-mod",
-        action="store_true",
-        help="copy generated files but do not update dependencies or tidy",
-    )
     return parser.parse_args()
 
 
@@ -323,30 +382,30 @@ def main() -> int:
     args = parse_args()
     source = args.source.expanduser().resolve()
     root = args.destination.expanduser().resolve()
-    version = resolve_release_version(args.ref)
+    version = resolve_release_version(root, args.ref)
     api_version = version
 
-    ensure_repository(source, args.ref)
+    tag_commit = resolve_rbg_tag(source, version)
     ensure_destination(root)
+    ensure_rbg_api_tag(version)
 
-    client_files = source_paths(source, args.ref, CLIENT_SOURCE)
+    client_files = source_paths(source, tag_commit, CLIENT_SOURCE)
     if not any(path.endswith(".go") for path in client_files):
-        raise SyncError(f"no generated client-go files found in rbg {args.ref}")
-    api_versions = validate_api_coverage(source, args.ref, client_files)
+        raise SyncError(f"no generated client-go files found in rbg {version}")
+    api_versions = validate_api_coverage(source, tag_commit, client_files)
 
-    copied = copy_generated_client(source, args.ref, root, client_files)
+    copied = copy_generated_client(source, tag_commit, root, client_files)
     format_copied_go_files(root)
     validate_generated_imports(root)
     if copied == 0:
         raise SyncError("selected no generated client-go files")
 
-    if not args.skip_go_mod:
-        update_go_mod(root, source, args.ref, api_version, args.go)
-        run_go(args.go, root, ["mod", "tidy"])
+    update_go_mod(root, source, tag_commit, api_version, args.go)
+    run_go(args.go, root, ["mod", "tidy"])
 
     update_readme_version(root, version, api_versions)
     print(
-        f"Synced rbg {args.ref}: {copied} generated client-go files; "
+        f"Synced rbg {version} at {tag_commit}: {copied} generated client-go files; "
         f"requires {API_MODULE} {api_version}"
     )
     return 0

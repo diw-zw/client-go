@@ -1,7 +1,7 @@
 GO ?= go
 PYTHON ?= python3
 RBG_SOURCE ?= ../rbg
-VERSION ?= v0.8.0
+VERSION ?=
 
 .PHONY: help
 help: ## Display this help.
@@ -11,7 +11,7 @@ help: ## Display this help.
 sync: ## Sync generated client-go from RBG.
 	$(PYTHON) script/sync_from_rbg.py \
 		--source "$(RBG_SOURCE)" \
-		--ref "$(VERSION)"
+		$(if $(VERSION),--ref "$(VERSION)")
 
 .PHONY: fmt
 fmt: ## Format generated Go files.

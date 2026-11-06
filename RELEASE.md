@@ -7,7 +7,8 @@ versions.
 2. Sync the generated client:
 
    ```bash
-   make sync VERSION=$VERSION
+   git switch -c "release/$VERSION"
+   make sync
    ```
 
 3. Run `make build`, `make test`, and `make vet`.
