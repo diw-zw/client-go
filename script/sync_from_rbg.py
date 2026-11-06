@@ -85,10 +85,16 @@ def resolve_rbg_tag(source: Path, version: str) -> str:
         raise SyncError(f"rbg source does not exist: {source}")
     if not (source / ".git").exists():
         raise SyncError(f"rbg source is not a Git repository: {source}")
-    result = run_git(
-        source,
-        ["rev-parse", "--verify", f"refs/tags/{version}^{{commit}}"],
-    )
+    try:
+        result = run_git(
+            source,
+            ["rev-parse", "--verify", f"refs/tags/{version}^{{commit}}"],
+        )
+    except SyncError:
+        raise SyncError(
+            f"rbg tag {version} not found in {source}; "
+            f"try `git -C {source} fetch --tags`"
+        ) from None
     return result.stdout.decode("utf-8").strip()
 
 
@@ -105,8 +111,13 @@ def ensure_rbg_api_tag(version: str) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    if result.returncode != 0:
+    if result.returncode == 2:
         raise SyncError(f"rbg-api tag does not exist: {version}")
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise SyncError(
+            f"could not list rbg-api tags from {API_REPOSITORY}: {detail}"
+        )
 
 
 def current_branch(root: Path) -> str | None:
