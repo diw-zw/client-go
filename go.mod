@@ -5,7 +5,7 @@
 // point both API and client-go module paths at their published repositories.
 // In consumer modules, add:
 //   replace sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.8.0
-//   replace sigs.k8s.io/rbgs/client-go => github.com/sgl-project/rbg-client-go v0.8.0
+//   replace sigs.k8s.io/rbgs/client-go => github.com/sgl-project/client-go v0.8.0
 // The replace below is for this repository's own builds and tests only.
 // The generated client requires k8s.io/client-go v0.34.2 or newer.
 module sigs.k8s.io/rbgs/client-go

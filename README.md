@@ -50,7 +50,7 @@ require (
 
 replace (
     sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.8.0
-    sigs.k8s.io/rbgs/client-go => github.com/sgl-project/rbg-client-go v0.8.0
+    sigs.k8s.io/rbgs/client-go => github.com/sgl-project/client-go v0.8.0
 )
 ```
 
