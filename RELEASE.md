@@ -1,9 +1,23 @@
 # Release Process
 
-The Kubernetes Template Project is released on an as-needed basis. The process is as follows:
+RBG client-go is released in lockstep with the matching RBG and rbg-api
+versions.
 
-1. An issue is proposing a new release with a changelog since the last release
-1. All [OWNERS](OWNERS) must LGTM this release
-1. An OWNER runs `git tag -s $VERSION` and inserts the changelog and pushes the tag with `git push $VERSION`
-1. The release issue is closed
-1. An announcement email is sent to `dev@kubernetes.io` with the subject `[ANNOUNCE] kubernetes-template-project $VERSION is released`
+1. Confirm the target RBG tag exists in the source repository.
+2. Sync the generated client:
+
+   ```bash
+   git switch -c "release/$VERSION"
+   make sync
+   ```
+
+3. Run `make build`, `make test`, and `make vet`.
+4. Ask an [OWNER](OWNERS) to review the generated diff.
+5. Tag the release:
+
+   ```bash
+   git tag -s "$VERSION"
+   git push origin "$VERSION"
+   ```
+
+6. Publish the release notes and close the release issue.
