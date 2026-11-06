@@ -16,7 +16,7 @@ require (
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.2
-	sigs.k8s.io/rbgs/api v0.9.0-alpha.1
+	sigs.k8s.io/rbgs/api v0.9.0-alpha.2
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0
 )
 
@@ -61,4 +61,4 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.9.0-alpha.1
+replace sigs.k8s.io/rbgs/api => github.com/sgl-project/rbg-api v0.9.0-alpha.2
