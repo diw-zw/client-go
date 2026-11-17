@@ -17,7 +17,7 @@ keeps the API module free of client-go dependencies.
 From the repository root:
 
 ```bash
-export VERSION=v0.9.0-alpha.3
+export VERSION=v0.9.0-alpha.4
 export RBG_SOURCE=../../sgl-project/rbg
 git switch -c "release/$VERSION"
 

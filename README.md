@@ -114,6 +114,7 @@ These targets use the `replace` directive maintained by the sync script.
 
 | client-go | rbg-api | RBG | Preferred API version |
 |-----------|---------|-----|-----------------------|
+| v0.9.0-alpha.4 | v0.9.0-alpha.4 | [v0.9.0-alpha.4](https://github.com/sgl-project/rbg/releases/tag/v0.9.0-alpha.4) | v1alpha2 |
 | v0.9.0-alpha.3 | v0.9.0-alpha.3 | [v0.9.0-alpha.3](https://github.com/sgl-project/rbg/releases/tag/v0.9.0-alpha.3) | v1alpha2 |
 | v0.9.0-alpha.2 | v0.9.0-alpha.2 | [v0.9.0-alpha.2](https://github.com/sgl-project/rbg/releases/tag/v0.9.0-alpha.2) | v1alpha2 |
 | v0.9.0-alpha.1 | v0.9.0-alpha.1 | [v0.9.0-alpha.1](https://github.com/sgl-project/rbg/releases/tag/v0.9.0-alpha.1) | v1alpha2 |
