@@ -28,7 +28,7 @@ CLIENT_SOURCE = "client-go"
 API_SOURCE = "api/workloads"
 MODULE_PATH = "sigs.k8s.io/rbgs/client-go"
 API_MODULE = "sigs.k8s.io/rbgs/api"
-API_REPOSITORY = "https://github.com/sgl-project/rbg-api"
+API_REPOSITORY = "git@github.com:sgl-project/rbg-api.git"
 RELEASE_BRANCH_PREFIX = "release/"
 
 GENERATED_DIRECTORIES = (
