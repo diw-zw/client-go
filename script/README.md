@@ -17,8 +17,8 @@ keeps the API module free of client-go dependencies.
 From the repository root:
 
 ```bash
-export VERSION=v0.8.0
-export RBG_SOURCE=../rbg
+export VERSION=v0.9.0-alpha.3
+export RBG_SOURCE=../../sgl-project/rbg
 git switch -c "release/$VERSION"
 
 python3 script/sync_from_rbg.py \
